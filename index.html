@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Einmaleins-Spiel (1–10)</title>
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --expert: #7c3aed;
+      --danger: #ef4444;
+      --success: #10b981;
+      --shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); touch-action: manipulation;
+    }
+    .screen { display: none; height: 100dvh; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    #start-screen { align-items: center; text-align: center; gap: 12px; overflow-y: auto; overflow-x: hidden; }
+    #start-screen > :first-child { margin-top: auto; }
+    #start-screen > :last-child { margin-bottom: auto; }
+
+    .title-box h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 5vw, 2.3rem); color: #0f172a; }
+    .title-box p { margin: 0; font-size: clamp(0.92rem, 3vw, 1.1rem); color: var(--muted); }
+
+    .mode-switch { display: inline-flex; background: #e2e8f0; padding: 4px; border-radius: 14px; gap: 4px; flex-shrink: 0; }
+    .mode-btn {
+      border: none; background: transparent; color: var(--muted); font-size: 0.95rem; font-weight: 700;
+      padding: 8px 18px; border-radius: 11px; cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .mode-btn.active { background: var(--surface); color: var(--primary-dark); box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1); }
+    .mode-btn[data-mode="expert"].active { color: var(--expert); }
+
+    .number-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; max-width: 340px; flex-shrink: 0; }
+    .num-choice-btn {
+      height: clamp(44px, 7.8dvh, 70px); border: 2px solid #e2e8f0; border-radius: 16px;
+      background: var(--surface); color: var(--primary-dark); font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 800; box-shadow: var(--shadow); cursor: pointer;
+      transition: transform 0.12s ease, background-color 0.15s ease, color 0.15s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    @media (min-width: 480px) {
+      .number-grid { grid-template-columns: repeat(5, 1fr); max-width: 520px; gap: 12px; }
+      .num-choice-btn { height: auto; aspect-ratio: 1 / 1; border-radius: 18px; }
+    }
+    @media (min-width: 480px) and (max-height: 520px) {
+      .num-choice-btn { aspect-ratio: auto; height: clamp(44px, 12dvh, 68px); }
+    }
+    .num-choice-btn:active { transform: scale(0.94); background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .legend-hint { margin: 0; font-size: clamp(0.84rem, 2.5vw, 0.95rem); color: var(--muted); max-width: 440px; line-height: 1.4; }
+    .install-btn {
+      display: none; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 14px; border: none;
+      background: var(--primary); color: #fff; font-size: 0.95rem; font-weight: 700; box-shadow: var(--shadow); cursor: pointer; flex-shrink: 0;
+    }
+    .install-btn.visible { display: inline-flex; }
+    .install-btn:active { transform: scale(0.96); }
+
+    #game-screen { justify-content: space-between; gap: 10px; overflow: hidden; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: 4px 0; gap: 8px; }
+    .badge {
+      background: var(--surface); border-radius: 14px; padding: 8px 14px; box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 8px; font-weight: 700; border: 2px solid #e2e8f0;
+    }
+    .badge-label { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .badge-value { font-size: 1.35rem; color: #0f172a; min-width: 1.5ch; text-align: center; }
+    #selected-number-display { color: var(--primary-dark); }
+
+    .mode-pill {
+      display: none; background: #ede9fe; color: var(--expert); border: 1.5px solid #c4b5fd;
+      border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .mode-pill.visible { display: inline-flex; align-items: center; }
+
+    .score-wrapper { position: relative; }
+    .score-delta { position: absolute; right: 12px; top: 100%; margin-top: 4px; font-weight: 800; font-size: 1.1rem; pointer-events: none; opacity: 0; z-index: 10; }
+    .score-delta.show-plus { color: var(--success); animation: floatDelta 0.9s ease-out forwards; }
+    .score-delta.show-minus { color: var(--danger); animation: floatDelta 0.9s ease-out forwards; }
+    @keyframes floatDelta {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(16px) scale(1.1); }
+    }
+
+    .board-container { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+    .board {
+      display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(5, 1fr);
+      gap: clamp(6px, 1.8vw, 12px); width: min(100%, calc((100dvh - 160px) * 0.8)); aspect-ratio: 4 / 5;
+    }
+    .tile {
+      position: relative; border: 3px solid #cbd5e1; border-radius: 14px; background: var(--surface);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: var(--shadow);
+      transition: transform 0.12s ease, border-color 0.15s ease, background-color 0.2s ease, opacity 0.15s ease;
+      overflow: hidden; padding: 4px;
+    }
+    .tile:active:not(.matched):not(.type-blocked) { transform: scale(0.95); }
+    .tile.type-multiplier { background: #f0f7ff; border-color: #bfdbfe; }
+    .tile.type-result { background: #ffffff; border-color: #e2e8f0; }
+    .tile.type-blocked { opacity: 0.45; cursor: not-allowed; }
+    .tile-tag { font-size: clamp(0.6rem, 1.6vw, 0.75rem); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); line-height: 1; margin-bottom: 2px; z-index: 1; }
+    .tile.type-multiplier .tile-tag { color: #3b82f6; }
+    .tile-value { font-size: clamp(1.3rem, 4.5vw, 2rem); font-weight: 800; line-height: 1.1; color: #0f172a; z-index: 1; }
+    .tile.selected { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3); transform: scale(1.03); }
+    .tile.selected.expert-locked { border-color: var(--expert); box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.32); cursor: default; }
+    .tile.wrong { border-color: var(--danger) !important; background-color: #fee2e2 !important; animation: shake 0.42s ease; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+    .tile.matched { cursor: default; box-shadow: none; }
+    .tile.matched .tile-tag { color: rgba(15, 23, 42, 0.65); }
+
+    .star-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2; animation: popStar 0.35s ease-out; }
+    .star-overlay svg { width: 78%; height: 78%; opacity: 0.42; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15)); }
+    @keyframes popStar {
+      0% { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+      70% { transform: scale(1.12) rotate(6deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+
+    .bottom-bar { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: 4px 0; }
+    .back-btn, .sound-btn {
+      height: 48px; padding: 0 16px; border-radius: 14px; border: 2px solid #cbd5e1; background: var(--surface);
+      color: var(--text); font-size: 1rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;
+      cursor: pointer; box-shadow: var(--shadow); transition: transform 0.12s ease, background-color 0.15s ease;
+    }
+    .back-btn:active, .sound-btn:active { transform: scale(0.95); background: #e2e8f0; }
+    .back-btn svg { width: 20px; height: 20px; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 100; backdrop-filter: blur(2px); }
+    .modal-backdrop.open { display: flex; }
+    .modal-card { background: var(--surface); border-radius: 22px; padding: 24px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); animation: modalIn 0.2s ease-out; }
+    @keyframes modalIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-card h2 { margin: 0 0 10px; font-size: 1.4rem; }
+    .modal-card p { margin: 0 0 22px; color: var(--muted); line-height: 1.45; }
+    .modal-actions { display: flex; gap: 12px; }
+    .btn { flex: 1; padding: 14px 12px; border-radius: 14px; border: none; font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease; }
+    .btn:active { transform: scale(0.96); }
+    .btn-continue { background: var(--primary); color: #fff; }
+    .btn-stop { background: #fee2e2; color: #b91c1c; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; }
+  </style>
+</head>
+<body>
+  <section id="start-screen" class="screen active">
+    <div class="title-box">
+      <h1>Einmaleins-Spiel</h1>
+      <p>Wähle Modus und Zahl (1 bis 10):</p>
+    </div>
+    <div class="mode-switch" role="group" aria-label="Spielmodus">
+      <button type="button" class="mode-btn active" data-mode="normal">Normal</button>
+      <button type="button" class="mode-btn" data-mode="expert">Experte</button>
+    </div>
+    <div class="number-grid" id="number-grid"></div>
+    <p class="legend-hint" id="mode-hint">
+      Finde zu jedem <strong>Faktor (× 1–10)</strong> das passende <strong>Ergebnis (=)</strong>.<br>
+      Richtige Paare geben Punkte in Höhe des Ergebnisses. Bei einem Fehler wird das richtige Ergebnis abgezogen.
+    </p>
+    <button type="button" class="install-btn" id="install-btn">📲 Als App installieren</button>
+  </section>
+
+  <section id="game-screen" class="screen">
+    <header class="top-bar">
+      <div class="badge" aria-label="Ausgewählte Zahl">
+        <span class="badge-label">Zahl</span>
+        <span class="badge-value" id="selected-number-display">1</span>
+      </div>
+      <span class="mode-pill" id="expert-badge">Experte</span>
+      <div class="score-wrapper">
+        <div class="badge" aria-label="Punktestand">
+          <span class="badge-label">Punkte</span>
+          <span class="badge-value" id="score-display">0</span>
+        </div>
+        <div class="score-delta" id="score-delta"></div>
+      </div>
+    </header>
+    <main class="board-container"><div class="board" id="board"></div></main>
+    <footer class="bottom-bar">
+      <button class="back-btn" id="back-btn" aria-label="Zurück zum Startbildschirm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Zurück</span>
+      </button>
+      <button class="sound-btn" id="sound-btn" aria-label="Ton ein- oder ausschalten">🔊 Ton</button>
+    </footer>
+  </section>
+
+  <div class="modal-backdrop" id="exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+    <div class="modal-card">
+      <h2 id="exit-title">Spiel beenden?</h2>
+      <p>Möchtest du das aktuelle Spiel beenden und eine neue Zahl wählen, oder weiterspielen?</p>
+      <div class="modal-actions">
+        <button class="btn btn-stop" id="confirm-stop-btn">Beenden</button>
+        <button class="btn btn-continue" id="confirm-continue-btn">Weiterspielen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="win-modal" role="dialog" aria-modal="true" aria-labelledby="win-title">
+    <div class="modal-card">
+      <h2 id="win-title">Alle Paare gefunden! ⭐</h2>
+      <p id="win-summary">Endstand: 0 Punkte</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="win-start-btn">Neue Zahl</button>
+        <button class="btn btn-continue" id="win-replay-btn">Nochmal</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PAIR_COLORS = [
+      { bg: "#fde68a", border: "#f59e0b" }, { bg: "#bbf7d0", border: "#22c55e" },
+      { bg: "#bae6fd", border: "#0ea5e9" }, { bg: "#fbcfe8", border: "#ec4899" },
+      { bg: "#ddd6fe", border: "#8b5cf6" }, { bg: "#fed7aa", border: "#f97316" },
+      { bg: "#99f6e4", border: "#14b8a6" }, { bg: "#e9d5ff", border: "#a855f7" },
+      { bg: "#fecdd3", border: "#f43f5e" }, { bg: "#d9f99d", border: "#84cc16" }
+    ];
+    const STAR_SVG = `<svg viewBox="0 0 24 24" fill="#ffffff" stroke="#0f172a" stroke-width="1.2" aria-hidden="true"><path d="M12 2.2l2.92 6.02 6.64.94-4.82 4.66 1.15 6.62L12 17.28l-5.89 3.16 1.15-6.62L2.44 9.16l6.64-.94L12 2.2z"/></svg>`;
+    const MODE_HINTS = {
+      normal: `Finde zu jedem <strong>Faktor (× 1–10)</strong> das passende <strong>Ergebnis (=)</strong>.<br>Richtige Paare geben Punkte in Höhe des Ergebnisses. Bei einem Fehler wird das richtige Ergebnis abgezogen.`,
+      expert: `<strong>Experten-Modus:</strong> Das Spiel wählt zufällig einen Faktor oder ein Ergebnis vor – finde das passende Gegenstück!`
+    };
+
+    // ================= SOUND ENGINE (Web Audio API) =================
+    let audioCtx = null;
+    let soundEnabled = true;
+    try {
+      const savedSound = localStorage.getItem("einmaleins_sound");
+      if (savedSound !== null) soundEnabled = savedSound === "true";
+    } catch (_) {}
+
+    function getAudioCtx() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!audioCtx) audioCtx = new AudioCtx();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function playTone(ctx, { freq, endFreq, type = "sine", start = 0, duration = 0.1, gain = 0.14 }) {
+      const now = ctx.currentTime + start;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      if (endFreq && endFreq !== freq) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+      }
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(gain, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+
+    function playSound(kind) {
+      if (!soundEnabled) return;
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+
+      switch (kind) {
+        case "select":
+          playTone(ctx, { freq: 440, endFreq: 580, type: "sine", duration: 0.075, gain: 0.12 });
+          break;
+        case "success":
+          playTone(ctx, { freq: 523.25, type: "triangle", start: 0, duration: 0.13, gain: 0.15 });
+          playTone(ctx, { freq: 783.99, type: "triangle", start: 0.085, duration: 0.22, gain: 0.16 });
+          break;
+        case "failure":
+          playTone(ctx, { freq: 240, endFreq: 155, type: "triangle", start: 0, duration: 0.22, gain: 0.15 });
+          playTone(ctx, { freq: 185, endFreq: 130, type: "sine", start: 0.08, duration: 0.2, gain: 0.1 });
+          break;
+        case "back":
+          playTone(ctx, { freq: 420, endFreq: 250, type: "sine", duration: 0.1, gain: 0.12 });
+          break;
+        case "win":
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+            playTone(ctx, {
+              freq: f,
+              type: "triangle",
+              start: i * 0.095,
+              duration: i === 3 ? 0.42 : 0.16,
+              gain: i === 3 ? 0.18 : 0.14
+            });
+          });
+          break;
+      }
+    }
+
+    let gameMode = "normal", selectedNumber = 1, score = 0, matchedCount = 0;
+    let firstSelection = null, isLocked = false, pendingTimeout = null, deferredInstallPrompt = null;
+
+    const startScreen = document.getElementById("start-screen");
+    const gameScreen = document.getElementById("game-screen");
+    const modeBtns = document.querySelectorAll(".mode-btn");
+    const modeHint = document.getElementById("mode-hint");
+    const expertBadge = document.getElementById("expert-badge");
+    const numberGrid = document.getElementById("number-grid");
+    const boardEl = document.getElementById("board");
+    const selectedNumberDisplay = document.getElementById("selected-number-display");
+    const scoreDisplay = document.getElementById("score-display");
+    const scoreDelta = document.getElementById("score-delta");
+    const installBtn = document.getElementById("install-btn");
+    const backBtn = document.getElementById("back-btn");
+    const soundBtn = document.getElementById("sound-btn");
+    const exitModal = document.getElementById("exit-modal");
+    const confirmStopBtn = document.getElementById("confirm-stop-btn");
+    const confirmContinueBtn = document.getElementById("confirm-continue-btn");
+    const winModal = document.getElementById("win-modal");
+    const winSummary = document.getElementById("win-summary");
+    const winStartBtn = document.getElementById("win-start-btn");
+    const winReplayBtn = document.getElementById("win-replay-btn");
+
+    function updateSoundBtn() {
+      soundBtn.textContent = soundEnabled ? "🔊 Ton" : "🔇 Aus";
+    }
+    updateSoundBtn();
+
+    soundBtn.addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      try { localStorage.setItem("einmaleins_sound", String(soundEnabled)); } catch (_) {}
+      updateSoundBtn();
+      if (soundEnabled) playSound("select");
+    });
+
+    modeBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        playSound("select");
+        gameMode = btn.dataset.mode;
+        modeBtns.forEach((b) => b.classList.toggle("active", b === btn));
+        modeHint.innerHTML = MODE_HINTS[gameMode];
+      });
+    });
+
+    for (let n = 1; n <= 10; n++) {
+      const btn = document.createElement("button");
+      btn.className = "num-choice-btn";
+      btn.textContent = n;
+      btn.setAttribute("aria-label", `Mal ${n} üben`);
+      btn.addEventListener("click", () => {
+        playSound("select");
+        startGame(n);
+      });
+      numberGrid.appendChild(btn);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function clearPendingTimeout() {
+      if (pendingTimeout) { clearTimeout(pendingTimeout); pendingTimeout = null; }
+    }
+
+    function startGame(number) {
+      clearPendingTimeout();
+      selectedNumber = number; score = 0; matchedCount = 0; firstSelection = null; isLocked = false;
+      selectedNumberDisplay.textContent = selectedNumber;
+      scoreDisplay.textContent = score;
+      scoreDelta.className = "score-delta"; scoreDelta.textContent = "";
+      expertBadge.classList.toggle("visible", gameMode === "expert");
+      buildBoard();
+      showScreen(gameScreen);
+      if (gameMode === "expert") selectRandomTile();
+    }
+
+    function buildBoard() {
+      boardEl.innerHTML = "";
+      const tiles = [];
+      for (let m = 1; m <= 10; m++) {
+        tiles.push({ type: "multiplier", value: m });
+        tiles.push({ type: "result", value: m * selectedNumber });
+      }
+      shuffle(tiles);
+      tiles.forEach((tileData) => {
+        const tileEl = document.createElement("button");
+        tileEl.type = "button";
+        tileEl.className = `tile type-${tileData.type}`;
+        tileEl.dataset.type = tileData.type;
+        tileEl.dataset.value = tileData.value;
+        const tagText = tileData.type === "multiplier" ? "×" : "=";
+        tileEl.innerHTML = `<span class="tile-tag">${tagText}</span><span class="tile-value">${tileData.value}</span>`;
+        tileEl.addEventListener("click", () => handleTileClick(tileEl, tileData));
+        boardEl.appendChild(tileEl);
+      });
+    }
+
+    function selectRandomTile() {
+      const available = Array.from(boardEl.querySelectorAll(".tile:not(.matched)"));
+      if (available.length === 0) return;
+      const randomEl = available[Math.floor(Math.random() * available.length)];
+      randomEl.classList.add("selected", "expert-locked");
+      firstSelection = { element: randomEl, data: { type: randomEl.dataset.type, value: Number(randomEl.dataset.value) } };
+      updateBlockedState();
+    }
+
+    function updateBlockedState() {
+      boardEl.querySelectorAll(".tile").forEach((el) => {
+        el.classList.remove("type-blocked");
+        if (firstSelection && !el.classList.contains("matched") && el !== firstSelection.element && el.dataset.type === firstSelection.data.type) {
+          el.classList.add("type-blocked");
+        }
+      });
+    }
+
+    function handleTileClick(tileEl, tileData) {
+      if (isLocked || tileEl.classList.contains("matched")) return;
+      if (firstSelection && firstSelection.element === tileEl) {
+        if (gameMode === "expert") return;
+        playSound("select");
+        tileEl.classList.remove("selected");
+        firstSelection = null;
+        updateBlockedState();
+        return;
+      }
+      if (!firstSelection) {
+        playSound("select");
+        tileEl.classList.add("selected");
+        firstSelection = { element: tileEl, data: tileData };
+        updateBlockedState();
+        return;
+      }
+      if (firstSelection.data.type === tileData.type) return;
+
+      const multiplierTile = firstSelection.data.type === "multiplier" ? firstSelection : { element: tileEl, data: tileData };
+      const resultTile = firstSelection.data.type === "result" ? firstSelection : { element: tileEl, data: tileData };
+      const properResult = multiplierTile.data.value * selectedNumber;
+      const chosenResult = resultTile.data.value;
+
+      if (properResult === chosenResult) {
+        playSound("success");
+        const color = PAIR_COLORS[multiplierTile.data.value - 1];
+        applyMatchStyle(multiplierTile.element, color);
+        applyMatchStyle(resultTile.element, color);
+        score += properResult;
+        updateScoreUI(`+${properResult}`, true);
+        matchedCount++;
+        firstSelection = null;
+        updateBlockedState();
+
+        if (matchedCount === 10) {
+          pendingTimeout = setTimeout(() => {
+            playSound("win");
+            const modeLabel = gameMode === "expert" ? " (Experte)" : "";
+            winSummary.textContent = `Du hast die ${selectedNumber}er-Reihe${modeLabel} mit ${score} Punkten geschafft!`;
+            winModal.classList.add("open");
+          }, 500);
+        } else if (gameMode === "expert") {
+          isLocked = true;
+          pendingTimeout = setTimeout(() => { isLocked = false; selectRandomTile(); }, 250);
+        }
+      } else {
+        playSound("failure");
+        isLocked = true;
+        tileEl.classList.add("selected");
+        multiplierTile.element.classList.add("wrong");
+        resultTile.element.classList.add("wrong");
+        score -= properResult;
+        updateScoreUI(`-${properResult}`, false);
+        pendingTimeout = setTimeout(() => {
+          multiplierTile.element.classList.remove("wrong");
+          resultTile.element.classList.remove("wrong");
+          if (gameMode === "expert") {
+            tileEl.classList.remove("selected");
+          } else {
+            multiplierTile.element.classList.remove("selected");
+            resultTile.element.classList.remove("selected");
+            firstSelection = null;
+          }
+          updateBlockedState();
+          isLocked = false;
+        }, 450);
+      }
+    }
+
+    function applyMatchStyle(el, color) {
+      el.classList.remove("selected", "expert-locked", "type-blocked");
+      el.classList.add("matched");
+      el.style.backgroundColor = color.bg;
+      el.style.borderColor = color.border;
+      const star = document.createElement("div");
+      star.className = "star-overlay";
+      star.innerHTML = STAR_SVG;
+      el.appendChild(star);
+    }
+
+    function updateScoreUI(deltaText, isPositive) {
+      scoreDisplay.textContent = score;
+      scoreDelta.className = "score-delta";
+      void scoreDelta.offsetWidth;
+      scoreDelta.textContent = deltaText;
+      scoreDelta.classList.add(isPositive ? "show-plus" : "show-minus");
+    }
+
+    function showScreen(screenToShow) {
+      startScreen.classList.remove("active");
+      gameScreen.classList.remove("active");
+      screenToShow.classList.add("active");
+    }
+
+    backBtn.addEventListener("click", () => { playSound("back"); exitModal.classList.add("open"); });
+    confirmContinueBtn.addEventListener("click", () => { playSound("select"); exitModal.classList.remove("open"); });
+    confirmStopBtn.addEventListener("click", () => { playSound("back"); clearPendingTimeout(); exitModal.classList.remove("open"); showScreen(startScreen); });
+    winStartBtn.addEventListener("click", () => { playSound("back"); clearPendingTimeout(); winModal.classList.remove("open"); showScreen(startScreen); });
+    winReplayBtn.addEventListener("click", () => { playSound("select"); winModal.classList.remove("open"); startGame(selectedNumber); });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((err) => console.warn("SW:", err));
+      });
+    }
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      installBtn.classList.add("visible");
+    });
+    installBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installBtn.classList.remove("visible");
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      installBtn.classList.remove("visible");
+    });
+  </script>
+</body>
+</html>
